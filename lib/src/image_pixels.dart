@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -182,7 +183,18 @@ class _ImagePixelsState extends State<ImagePixels> {
         this.image = image;
         width = image.width;
         height = image.height;
-        byteData = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+        ByteData? imageData = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+        // if(imageData != null){
+        //   Uint32List pruned = imageData.buffer.asUint32List();
+        //   List<int> rgbVaalue = [];
+        //   for (var i = 0; i < pruned.length; i++) {
+        //     final rgb = pruned[i];
+        //     rgbVaalue.add(_rgbaToArgb(rgb));
+        //     // print('$i -> $rgb');
+        //   }
+        //   print(rgbVaalue);
+        // }
+        byteData = imageData;
         if (mounted) setState(() {});
       });
     }
@@ -215,8 +227,55 @@ class _ImagePixelsState extends State<ImagePixels> {
         alignment.y < -1.0 ||
         alignment.y > 1.0) return defaultColor;
 
-    Offset offset = alignment.alongSize(Size(width!.toDouble() - 1.0, height!.toDouble() - 1.0));
-    return pixelColorAt(offset.dx.round(), offset.dy.round());
+    int horz = 5;
+    int vert = 5;
+
+    // Offset offset = alignment.alongSize(Size(width!.toDouble() - 1.0, height!.toDouble() - 1.0));
+    // return pixelColorAt(offset.dx.round(), offset.dy.round());
+    late Color color;
+    List<Color> colorfulColors = [];
+    //30 retreies to find a new color
+    for (var i = 0; i < horz * vert; i++) {
+      Alignment align = Alignment((i % horz) / horz, (i ~/ horz) / vert);
+      // print("Align: (${align.x}, ${align.y})");
+      Offset offset = align.alongSize(Size(width!.toDouble() - 1.0, height!.toDouble() - 1.0));
+      Color generated = pixelColorAt(offset.dx.round(), offset.dy.round());
+      // print("RGB: ${generated.red} ${generated.green} ${generated.blue}");
+      //determine greyscale
+      double lum = generated.computeLuminance();
+      if((generated.red == generated.green && generated.red == generated.blue) || lum < 0.2 || lum > 0.95){
+        // print('greyscale: ${generated.red} ${generated.green} ${generated.blue}');
+      }
+      else{
+        // print('colorful: ${generated.red} ${generated.green} ${generated.blue}');
+        colorfulColors.add(generated);
+        // break;
+      }
+    }
+    try{
+      color = (colorfulColors..sort((a, b){
+        int saturation(Color c){
+          List<int> rgb = [c.red, c.blue, c.green];
+          rgb.sort();
+          int maxC = rgb[2];
+          int minC = rgb[0];
+          double saturation = (maxC - minC) / (maxC + minC);
+          return max(saturation.toInt(), 255);
+        }
+        return saturation(a).compareTo(saturation(b));
+      }))[colorfulColors.length - 1];
+    }catch(err){
+      Offset offset = alignment.alongSize(Size(width!.toDouble() - 1.0, height!.toDouble() - 1.0));
+      color = pixelColorAt(offset.dx.round(), offset.dy.round());
+    }
+
+    //make color a little darker
+    double tweek = 0.4;
+    color = Color.fromARGB(color.alpha, (color.red * tweek).toInt(), (color.green * tweek).toInt(), (color.blue * tweek).toInt());
+
+    // return generated;
+    // print("RGB: ${color.red} ${color.green} ${color.blue}");
+    return color;
   }
 
   Color _colorAtByteOffset(int byteOffset) => Color(_rgbaToArgb(byteData!.getUint32(byteOffset)));
