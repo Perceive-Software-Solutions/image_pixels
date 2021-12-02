@@ -278,7 +278,14 @@ class _ImagePixelsState extends State<ImagePixels> {
     return color;
   }
 
-  Color _colorAtByteOffset(int byteOffset) => Color(_rgbaToArgb(byteData!.getUint32(byteOffset)));
+  Color _colorAtByteOffset(int byteOffset) {
+    try{
+      return Color(_rgbaToArgb(byteData!.getUint32(byteOffset))); 
+    }
+    catch(e){
+      return Colors.black;
+    }
+  }
 
   int _rgbaToArgb(int rgbaColor) {
     int a = rgbaColor & 0xFF;
